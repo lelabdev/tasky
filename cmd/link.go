@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/urfave/cli/v2"
 	"tasky/config"
 	"tasky/utils"
+
+	"github.com/urfave/cli/v2"
 )
 
 // LinkCommand returns a *cli.Command for the "link" command.
@@ -25,7 +25,7 @@ func LinkCommand() *cli.Command {
 			}
 
 			targetPath := filepath.Join(cfg.General.VaultPath, "Tasky", projectName)
-			linkPath := "tasky"
+			linkPath := "_tasky"
 
 			// Check if the target directory exists
 			if _, err := os.Stat(targetPath); os.IsNotExist(err) {
@@ -36,19 +36,19 @@ func LinkCommand() *cli.Command {
 			if _, err := os.Lstat(linkPath); err == nil {
 				fmt.Printf("Symbolic link '%s' already exists. Removing it...\n", linkPath)
 				if err := os.Remove(linkPath); err != nil {
-                    return cli.Exit(fmt.Sprintf("Failed to remove existing link: %v", err), 1)
-                }
-            }
+					return cli.Exit(fmt.Sprintf("Failed to remove existing link: %v", err), 1)
+				}
+			}
 
-            // fmt.Printf("Creating symbolic link from '%s' to '%s'...\n", targetPath, linkPath)
-            if err := os.Symlink(targetPath, linkPath); err != nil {
-                return cli.Exit(fmt.Sprintf("Failed to create symbolic link: %v", err), 1)
-            }
+			// fmt.Printf("Creating symbolic link from '%s' to '%s'...\n", targetPath, linkPath)
+			if err := os.Symlink(targetPath, linkPath); err != nil {
+				return cli.Exit(fmt.Sprintf("Failed to create symbolic link: %v", err), 1)
+			}
 
-            fmt.Printf("Symbolic link '%s' created successfully.\n", linkPath)
+			fmt.Printf("Symbolic link '%s' created successfully.\n", linkPath)
 
 			// Ask to add to .gitignore
-			fmt.Print("Add 'tasky/' to your project's .gitignore? (Y/n): ")
+			fmt.Print("Add '_tasky/' to your project's .gitignore? (Y/n): ")
 			reader := bufio.NewReader(os.Stdin)
 			input, _ := reader.ReadString('\n')
 			trimmedInput := strings.ToLower(strings.TrimSpace(input))
@@ -61,11 +61,11 @@ func LinkCommand() *cli.Command {
 				}
 				defer file.Close()
 
-				content := "\ntasky/\n"
+				content := "\n_tasky\n"
 				if _, err := file.WriteString(content); err != nil {
 					return cli.Exit(fmt.Sprintf("Failed to write to .gitignore: %v", err), 1)
 				}
-				fmt.Println("'tasky/' added to .gitignore.")
+				fmt.Println("'_tasky' added to .gitignore.")
 			} else {
 				fmt.Println("Skipping .gitignore update.")
 			}
