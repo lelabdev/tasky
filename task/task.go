@@ -14,10 +14,10 @@ import (
 	"tasky/utils"
 )
 
-// readTaskFile reads a markdown file, extracts its YAML frontmatter, and unmarshals it into a config.Task.
+// ReadTaskFile reads a markdown file, extracts its YAML frontmatter, and unmarshals it into a config.Task.
 // It returns the task, the remaining markdown content, and an error if any.
-func readTaskFile(filePath string) (*config.Task, string, error) {
-	fullContent, err := os.ReadFile(filePath)
+func ReadTaskFile(cfg config.Config, projectName string, filePath string) (*config.Task, string, error) {
+	fullContent, err := utils.ReadFromTaskyFile(cfg, projectName, filePath)
 	if err != nil {
 		return nil, "", fmt.Errorf("error reading file %s: %w", filePath, err)
 	}
@@ -25,10 +25,7 @@ func readTaskFile(filePath string) (*config.Task, string, error) {
 	text := string(fullContent)
 
 	// Extract YAML frontmatter directly
-	re := regexp.MustCompile(`(?s)^---
-(.*?)
----
-`)
+	re := regexp.MustCompile(`(?s)^---\n(.*?)\n---\n`)
 	matches := re.FindStringSubmatch(text)
 
 	var yamlContent string
@@ -49,9 +46,9 @@ func readTaskFile(filePath string) (*config.Task, string, error) {
 	return &t, descriptionPart, nil
 }
 
-// writeTaskFile marshals a config.Task back into YAML frontmatter, combines it with the markdown content,
+// WriteTaskFile marshals a config.Task back into YAML frontmatter, combines it with the markdown content,
 // and writes it back to the file.
-func writeTaskFile(filePath string, task *config.Task, descriptionPart string) error {
+func WriteTaskFile(cfg config.Config, projectName string, filePath string, task *config.Task, descriptionPart string) error {
 	updatedYamlData, err := yaml.Marshal(&task)
 	if err != nil {
 		return fmt.Errorf("error marshalling updated YAML for %s: %w", filePath, err)
@@ -59,12 +56,17 @@ func writeTaskFile(filePath string, task *config.Task, descriptionPart string) e
 
 	newContent := fmt.Sprintf("---\n%s---\n\n%s", string(updatedYamlData), descriptionPart)
 
-	return os.WriteFile(filePath, []byte(newContent), 0644)
+	return utils.WriteToTaskyFile(cfg, projectName, filePath, []byte(newContent))
 }
 
-func GetTasks(vaultPath string, filterProject string) []config.Task {
+func GetTasks(cfg config.Config, filterProject string) []config.Task {
 	var tasks []config.Task
-	taskyBaseDir := filepath.Join(vaultPath, "Tasky")
+	projectName := utils.GetProjectName()
+	taskyBaseDir, err := utils.GetTaskyDir(cfg, projectName)
+	if err != nil {
+		fmt.Println("Error getting Tasky directory:", err)
+		return tasks
+	}
 
 	var walkPath string
 	if filterProject != "" {
@@ -78,7 +80,7 @@ func GetTasks(vaultPath string, filterProject string) []config.Task {
 		return tasks
 	}
 
-	err := filepath.Walk(walkPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(walkPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -86,7 +88,7 @@ func GetTasks(vaultPath string, filterProject string) []config.Task {
 			return nil
 		}
 
-		t, _, err := readTaskFile(path)
+		t, _, err := ReadTaskFile(cfg, projectName, path)
 		if err == nil {
 			tasks = append(tasks, *t)
 		}
@@ -101,13 +103,18 @@ func GetTasks(vaultPath string, filterProject string) []config.Task {
 	return tasks
 }
 
-func MarkTaskDone(vaultPath, taskTitle string) {
+func MarkTaskDone(cfg config.Config, taskTitle string) {
 	var foundTask *config.Task
 	var foundPath string
 
-	taskyBaseDir := filepath.Join(vaultPath, "Tasky")
+	projectName := utils.GetProjectName()
+	taskyBaseDir, err := utils.GetTaskyDir(cfg, projectName)
+	if err != nil {
+		fmt.Println("Error getting Tasky directory:", err)
+		return
+	}
 
-	err := filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -115,7 +122,7 @@ func MarkTaskDone(vaultPath, taskTitle string) {
 			return nil
 		}
 
-		t, _, err := readTaskFile(path)
+		t, _, err := ReadTaskFile(cfg, projectName, path)
 		if err == nil {
 			if strings.EqualFold(t.Title, taskTitle) {
 				foundTask = t
@@ -145,13 +152,13 @@ func MarkTaskDone(vaultPath, taskTitle string) {
 	foundTask.Status = config.StatusDone
 	foundTask.DoneDate = time.Now().Format("2006-01-02")
 
-	_, descriptionPart, err := readTaskFile(foundPath)
+	_, descriptionPart, err := ReadTaskFile(cfg, projectName, foundPath)
 	if err != nil {
 		fmt.Println("Error reading task file for update:", err)
 		return
 	}
 
-	if err := writeTaskFile(foundPath, foundTask, descriptionPart); err != nil {
+	if err := WriteTaskFile(cfg, projectName, foundPath, foundTask, descriptionPart); err != nil {
 		fmt.Println("Error writing updated task file:", err)
 		return
 	}
@@ -159,13 +166,18 @@ func MarkTaskDone(vaultPath, taskTitle string) {
 	fmt.Printf("Task '%s' marked as done.\n", taskTitle)
 }
 
-func MarkTaskInProgress(vaultPath string, issueNumber int) {
+func MarkTaskInProgress(cfg config.Config, issueNumber int) {
 	var foundTask *config.Task
 	var foundPath string
 
-	taskyBaseDir := filepath.Join(vaultPath, "Tasky")
+	projectName := utils.GetProjectName()
+	taskyBaseDir, err := utils.GetTaskyDir(cfg, projectName)
+	if err != nil {
+		fmt.Println("Error getting Tasky directory:", err)
+		return
+	}
 
-	err := filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -173,7 +185,7 @@ func MarkTaskInProgress(vaultPath string, issueNumber int) {
 			return nil
 		}
 
-		t, _, err := readTaskFile(path)
+		t, _, err := ReadTaskFile(cfg, projectName, path)
 		if err == nil {
 			if t.Issue == issueNumber {
 				foundTask = t
@@ -203,13 +215,13 @@ func MarkTaskInProgress(vaultPath string, issueNumber int) {
 	foundTask.Status = config.StatusInProgress
 	foundTask.StartDate = time.Now().Format("2006-01-02 15:04:05")
 
-	_, descriptionPart, err := readTaskFile(foundPath)
+	_, descriptionPart, err := ReadTaskFile(cfg, projectName, foundPath)
 	if err != nil {
 		fmt.Println("Error reading task file for update:", err)
 		return
 	}
 
-	if err := writeTaskFile(foundPath, foundTask, descriptionPart); err != nil {
+	if err := WriteTaskFile(cfg, projectName, foundPath, foundTask, descriptionPart); err != nil {
 		fmt.Println("Error writing updated task file:", err)
 		return
 	}
@@ -218,13 +230,18 @@ func MarkTaskInProgress(vaultPath string, issueNumber int) {
 }
 
 // MarkTaskInProgressByTitle marks a task as in-progress using its title.
-func MarkTaskInProgressByTitle(vaultPath, taskTitle string) {
+func MarkTaskInProgressByTitle(cfg config.Config, taskTitle string) {
 	var foundTask *config.Task
 	var foundPath string
 
-	taskyBaseDir := filepath.Join(vaultPath, "Tasky")
+	projectName := utils.GetProjectName()
+	taskyBaseDir, err := utils.GetTaskyDir(cfg, projectName)
+	if err != nil {
+		fmt.Println("Error getting Tasky directory:", err)
+		return
+	}
 
-	err := filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -232,7 +249,7 @@ func MarkTaskInProgressByTitle(vaultPath, taskTitle string) {
 			return nil
 		}
 
-		t, _, err := readTaskFile(path)
+		t, _, err := ReadTaskFile(cfg, projectName, path)
 		if err == nil {
 			if strings.EqualFold(t.Title, taskTitle) {
 				foundTask = t
@@ -262,21 +279,22 @@ func MarkTaskInProgressByTitle(vaultPath, taskTitle string) {
 	foundTask.Status = config.StatusInProgress
 	foundTask.StartDate = time.Now().Format("2006-01-02 15:04:05")
 
-	_, descriptionPart, err := readTaskFile(foundPath)
+	_, descriptionPart, err := ReadTaskFile(cfg, projectName, foundPath)
 	if err != nil {
 		fmt.Println("Error reading task file for update:", err)
 		return
 	}
 
-	if err := writeTaskFile(foundPath, foundTask, descriptionPart); err != nil {
+	if err := WriteTaskFile(cfg, projectName, foundPath, foundTask, descriptionPart); err != nil {
 		fmt.Println("Error writing updated task file:", err)
-		return	}
+		return
+	}
 
 	fmt.Printf("Task '%s' marked as in-progress.\n", taskTitle)
 }
 
 // IncrementPomodoroCountForActiveTask increments the Pomodoro counter of the active task (from the current branch issue)
-func IncrementPomodoroCountForActiveTask(vaultPath string) error {
+func IncrementPomodoroCountForActiveTask(cfg config.Config) error {
 	branchName, err := utils.GetCurrentBranchName()
 	if err != nil {
 		return err
@@ -291,7 +309,10 @@ func IncrementPomodoroCountForActiveTask(vaultPath string) error {
 		return err
 	}
 	projectName := utils.GetProjectName()
-	projectTasksPath := filepath.Join(vaultPath, "Tasky", projectName)
+	projectTasksPath, err := utils.GetTaskyDir(cfg, projectName)
+	if err != nil {
+		return err
+	}
 	var foundPath string
 	var foundTask *config.Task
 	filepath.Walk(projectTasksPath, func(path string, info os.FileInfo, err error) error {
@@ -299,7 +320,7 @@ func IncrementPomodoroCountForActiveTask(vaultPath string) error {
 			return nil
 		}
 
-		t, _, err := readTaskFile(path)
+		t, _, err := ReadTaskFile(cfg, projectName, path)
 		if err == nil && t.Issue == issueNumber {
 			foundTask = t
 			foundPath = path
@@ -313,16 +334,16 @@ func IncrementPomodoroCountForActiveTask(vaultPath string) error {
 	foundTask.PomodoroCount++
 	// Update Duration (add PomodoroDuration minutes)
 	minutesToAdd := 25 // default
-	cfg := config.LoadConfig()
+		cfg = config.LoadConfig()
 	if cfg.Pomodoro.PomodoroDuration > 0 {
 		minutesToAdd = cfg.Pomodoro.PomodoroDuration
 	}
 	foundTask.Duration += minutesToAdd
 
-	_, descriptionPart, err := readTaskFile(foundPath)
+	_, descriptionPart, err := ReadTaskFile(cfg, projectName, foundPath)
 	if err != nil {
 		return err
 	}
 
-	return writeTaskFile(foundPath, foundTask, descriptionPart)
+	return WriteTaskFile(cfg, projectName, foundPath, foundTask, descriptionPart)
 }

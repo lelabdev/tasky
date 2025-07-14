@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"tasky/config"
@@ -30,9 +29,9 @@ func FinishTask(cfg config.Config) error {
 
 	// 3. GitHub operations: Push, Create PR and merge
 	fmt.Println("Pushing branch to remote...")
-	pushCmd := exec.Command("git", "push")
-	pushCmd.Stdout = utils.NewLogWriter("git push", false)
-	pushCmd.Stderr = utils.NewLogWriter("git push", true)
+	pushCmd := exec.Command("gh", "push")
+	pushCmd.Stdout = utils.NewLogWriter("gh push", false)
+	pushCmd.Stderr = utils.NewLogWriter("gh push", true)
 	if err := pushCmd.Run(); err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
@@ -78,8 +77,10 @@ func FinishTask(cfg config.Config) error {
 		return fmt.Errorf("could not determine project name. Please run this command in a Git repository")
 	}
 
-	projectTasksPath := filepath.Join(cfg.General.VaultPath, "Tasky", projectName)
-
+	projectTasksPath, err := utils.GetTaskyDir(cfg, projectName)
+	if err != nil {
+		return err
+	}
 
 	files, err := utils.ListMarkdownFiles(projectTasksPath)
 	if err != nil {
@@ -89,7 +90,7 @@ func FinishTask(cfg config.Config) error {
 	var foundTask *config.Task
 	var foundPath string
 	for _, file := range files {
-		t, _, err := readTaskFile(file)
+		t, _, err := ReadTaskFile(cfg, projectName, file)
 		if err == nil && fmt.Sprintf("%d", t.Issue) == issueNumber {
 			foundTask = t
 			foundPath = file
@@ -106,12 +107,12 @@ func FinishTask(cfg config.Config) error {
 	foundTask.Status = config.StatusDone
 	foundTask.DoneDate = time.Now().Format("2006-01-02")
 
-	_, descriptionPart, err := readTaskFile(foundPath)
+	_, descriptionPart, err := ReadTaskFile(cfg, projectName, foundPath)
 	if err != nil {
 		return fmt.Errorf("failed to read file %s for update: %w", foundPath, err)
 	}
 
-	if err := writeTaskFile(foundPath, foundTask, descriptionPart); err != nil {
+	if err := WriteTaskFile(cfg, projectName, foundPath, foundTask, descriptionPart); err != nil {
 		return fmt.Errorf("failed to write updated file %s: %w", foundPath, err)
 	}
 

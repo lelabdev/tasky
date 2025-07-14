@@ -18,7 +18,7 @@ func StartPomodoroCycle(cfg config.Config) {
 	for {
 		fmt.Println("Starting Pomodoro session...")
 		StartPomodoroAnimation(cfg)
-					if err := task.IncrementPomodoroCountForActiveTask(cfg.General.VaultPath); err != nil {
+					if err := task.IncrementPomodoroCountForActiveTask(cfg); err != nil {
 			fmt.Println("[WARN] Could not increment Pomodoro counter for the active task:", err)
 		}
 		fmt.Println("Pomodoro finished!")

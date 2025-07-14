@@ -31,7 +31,7 @@ func StartCommand() *cli.Command {
 			}
 			cfg := config.LoadConfig()
 			task.StartTaskDevelopment(issueNumberStr)
-			task.MarkTaskInProgress(cfg.General.VaultPath, issueNumber)
+			task.MarkTaskInProgress(cfg, issueNumber)
 			utils.PlaySound(cfg.Sounds.Start)
 			fmt.Printf("Task for issue #%s started.\n", issueNumberStr)
 

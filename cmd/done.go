@@ -21,7 +21,7 @@ func DoneCommand() *cli.Command {
 			}
 			taskTitle := c.Args().Get(0)
 			cfg := taskyconfig.LoadConfig()
-			tasky.MarkTaskDone(cfg.General.VaultPath, taskTitle)
+			tasky.MarkTaskDone(cfg, taskTitle)
 			utils.PlaySound(cfg.Sounds.Done)
 			fmt.Printf("Task '%s' marked as done.\n", taskTitle)
 			return nil

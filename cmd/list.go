@@ -40,7 +40,7 @@ func ListCommand() *cli.Command {
 			var tasks []config.Task
 
 			if c.Bool("all") {
-				tasks = task.GetTasks(cfg.General.VaultPath, "") // Get all tasks
+				tasks = task.GetTasks(cfg, "") // Get all tasks
 			} else {
 				projectName := c.Args().First()
 				if projectName == "" {
@@ -49,7 +49,7 @@ func ListCommand() *cli.Command {
 						return cli.Exit("Usage: tasky list [project_name] or tasky list --all. Run in a Git repository or provide a project name.", 1)
 					}
 				}
-				tasks = task.GetTasks(cfg.General.VaultPath, projectName)
+				tasks = task.GetTasks(cfg, projectName)
 			}
 
 			for _, t := range tasks {

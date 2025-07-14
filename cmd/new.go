@@ -53,7 +53,7 @@ func NewCommand() *cli.Command {
 			}
 
 			cfg := config.LoadConfig()
-			issueNumberStr, err := task.CreateTask(cfg.General.VaultPath, title, description, createGitHubIssue)
+			issueNumberStr, err := task.CreateTask(cfg, title, description, createGitHubIssue)
 			if err != nil {
 				return cli.Exit(fmt.Sprintf("Error creating task: %v", err), 1)
 			}
@@ -71,9 +71,9 @@ func NewCommand() *cli.Command {
 						return cli.Exit(fmt.Sprintf("Error starting task development: %v", err), 1)
 					}
 					issueNumber, _ := strconv.Atoi(issueNumberStr)
-					task.MarkTaskInProgress(cfg.General.VaultPath, issueNumber)
+					task.MarkTaskInProgress(cfg, issueNumber)
 				} else {
-					task.MarkTaskInProgressByTitle(cfg.General.VaultPath, title)
+					task.MarkTaskInProgressByTitle(cfg, title)
 				}
 				utils.PlaySound(cfg.Sounds.Start)
 

@@ -1,22 +1,18 @@
 package task
 
 import (
-	
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
-
-	
 
 	"tasky/config"
 	"tasky/utils"
 )
 
-func CreateTask(vaultPath, title, description string, createGitHubIssue bool) (string, error) {
+func CreateTask(cfg config.Config, title, description string, createGitHubIssue bool) (string, error) {
 	task := config.Task{
 		Frontmatter: config.Frontmatter{
 			Title:		title,
@@ -26,16 +22,12 @@ func CreateTask(vaultPath, title, description string, createGitHubIssue bool) (s
 	}
 
 	projectName := utils.GetProjectName()
-	projectPath := filepath.Join(vaultPath, "Tasky", projectName)
-	if err := os.MkdirAll(projectPath, os.ModePerm); err != nil {
-		return "", fmt.Errorf("error creating project directory: %w", err)
-	}
 
 	// Format filename
 	safeTitle := strings.ReplaceAll(strings.ToLower(title), " ", "-")
 	baseFilename := fmt.Sprintf("%s.md", safeTitle)
 	filename := baseFilename
-	filePath := filepath.Join(projectPath, filename)
+	filePath := filename
 
 	var createdIssueNumber string
 
@@ -64,7 +56,7 @@ func CreateTask(vaultPath, title, description string, createGitHubIssue bool) (s
 	// If an issue was created, update filename and filePath
 	if createdIssueNumber != "" {
 		filename = fmt.Sprintf("%s-%s", createdIssueNumber, baseFilename)
-		filePath = filepath.Join(projectPath, filename)
+				filePath = filename
 	}
 
 	// Check for existing file and add a number if necessary (after potential issue number prefix)
@@ -78,11 +70,11 @@ func CreateTask(vaultPath, title, description string, createGitHubIssue bool) (s
 		} else {
 			filename = fmt.Sprintf("%s-%d.md", safeTitle, i)
 		}
-		filePath = filepath.Join(projectPath, filename)
+				filePath = filename
 	}
 
 	// Write initial file
-	if err := writeTaskFile(filePath, &task, description); err != nil {
+	if err := WriteTaskFile(cfg, projectName, filePath, &task, description); err != nil {
 		return "", fmt.Errorf("error creating file: %w", err)
 	}
 
