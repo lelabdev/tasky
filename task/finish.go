@@ -4,11 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+<<<<<<< Updated upstream
 	"path/filepath"
 	"time"
 
+=======
+>>>>>>> Stashed changes
 	"tasky/config"
 	"tasky/utils"
+	"time"
 )
 
 // FinishTask closes a GitHub issue, merges the PR, and updates the task note.
@@ -70,8 +74,6 @@ func FinishTask(cfg config.Config) error {
 		return fmt.Errorf("failed to merge GitHub pull request: %w", err)
 	}
 
-
-
 	// 4. Find and update Markdown file
 	projectName := utils.GetProjectName()
 	if projectName == "unknown_project" {
@@ -102,7 +104,6 @@ func FinishTask(cfg config.Config) error {
 		return nil
 	}
 
-
 	foundTask.Status = config.StatusDone
 	foundTask.DoneDate = time.Now().Format("2006-01-02")
 
@@ -115,7 +116,6 @@ func FinishTask(cfg config.Config) error {
 		return fmt.Errorf("failed to write updated file %s: %w", foundPath, err)
 	}
 
-
-
 	return nil
 }
+
