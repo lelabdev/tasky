@@ -29,9 +29,9 @@ func FinishTask(cfg config.Config) error {
 
 	// 3. GitHub operations: Push, Create PR and merge
 	fmt.Println("Pushing branch to remote...")
-	pushCmd := exec.Command("gh", "push")
-	pushCmd.Stdout = utils.NewLogWriter("gh push", false)
-	pushCmd.Stderr = utils.NewLogWriter("gh push", true)
+	pushCmd := exec.Command("git", "push")
+	pushCmd.Stdout = utils.NewLogWriter("git push", false)
+	pushCmd.Stderr = utils.NewLogWriter("git push", true)
 	if err := pushCmd.Run(); err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
