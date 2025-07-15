@@ -7,11 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/urfave/cli/v2"
 	"tasky/config"
 	"tasky/pomodoro"
 	"tasky/task"
 	"tasky/utils"
+
+	"github.com/urfave/cli/v2"
 )
 
 // NewCommand returns a *cli.Command for the "new" command.
@@ -53,11 +54,11 @@ func NewCommand() *cli.Command {
 			}
 
 			cfg := config.LoadConfig()
-			issueNumberStr, err := task.CreateTask(cfg, title, description, createGitHubIssue)
+			issueNumberStr, filePath, err := task.CreateTask(cfg, title, description, createGitHubIssue)
 			if err != nil {
 				return cli.Exit(fmt.Sprintf("Error creating task: %v", err), 1)
 			}
-			fmt.Printf("Task '%s' created successfully.\n", title)
+			fmt.Printf("Task '%s' created successfully.\nFile path: %s\n", title, filePath)
 
 			// Ask to start the task
 			fmt.Print("Start this task? (Y/n): ")
