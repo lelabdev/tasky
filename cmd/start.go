@@ -30,7 +30,9 @@ func StartCommand() *cli.Command {
 				return cli.Exit(fmt.Sprintf("Error: Invalid issue number '%s'. Please provide a valid integer.\n", issueNumberStr), 1)
 			}
 			cfg := config.LoadConfig()
-			task.StartTaskDevelopment(issueNumberStr)
+			if err := task.StartTaskDevelopment(issueNumberStr); err != nil {
+				return cli.Exit(fmt.Sprintf("Error starting development: %v", err), 1)
+			}
 			task.MarkTaskInProgress(cfg, issueNumber)
 			if err := utils.PlaySound(cfg.Sounds.Start); err != nil {
 				fmt.Printf("Warning: %v\n", err)
