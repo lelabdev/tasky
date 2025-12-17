@@ -30,24 +30,25 @@ func StartCommand() *cli.Command {
 				return cli.Exit(fmt.Sprintf("Error: Invalid issue number '%s'. Please provide a valid integer.\n", issueNumberStr), 1)
 			}
 			cfg := config.LoadConfig()
-			task.StartTaskDevelopment(issueNumberStr)
+			if err := task.StartTaskDevelopment(issueNumberStr); err != nil {
+				return cli.Exit(fmt.Sprintf("Error starting development: %v", err), 1)
+			}
 			task.MarkTaskInProgress(cfg, issueNumber)
 			if err := utils.PlaySound(cfg.Sounds.Start); err != nil {
 				fmt.Printf("Warning: %v\n", err)
 			}
 			fmt.Printf("Task for issue #%s started.\n", issueNumberStr)
 
-            // Ask to start a Pomodoro
-            fmt.Print("Start a Pomodoro? (Y/n): ")
-            reader := bufio.NewReader(os.Stdin)
-            input, _ := reader.ReadString('\n')
-            trimmedInput := strings.ToLower(strings.TrimSpace(input))
+			// Ask to start a Pomodoro
+			fmt.Print("Start a Pomodoro? (Y/n): ")
+			reader := bufio.NewReader(os.Stdin)
+			input, _ := reader.ReadString('\n')
+			trimmedInput := strings.ToLower(strings.TrimSpace(input))
 
-            if trimmedInput == "y" || trimmedInput == "" {
-                pomodoro.StartPomodoroCycle(cfg)
-            }
-            return nil
+			if trimmedInput == "y" || trimmedInput == "" {
+				pomodoro.StartPomodoroCycle(cfg)
+			}
+			return nil
 		},
 	}
 }
-
