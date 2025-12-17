@@ -21,8 +21,12 @@ func DoneCommand() *cli.Command {
 			}
 			taskTitle := c.Args().Get(0)
 			cfg := taskyconfig.LoadConfig()
-			tasky.MarkTaskDone(cfg, taskTitle)
-			utils.PlaySound(cfg.Sounds.Done)
+			if err := tasky.MarkTaskDone(cfg, taskTitle); err != nil {
+				return cli.Exit(err.Error(), 1)
+			}
+			if err := utils.PlaySound(cfg.Sounds.Done); err != nil {
+				fmt.Printf("Warning: %v\n", err)
+			}
 			fmt.Printf("Task '%s' marked as done.\n", taskTitle)
 			return nil
 		},

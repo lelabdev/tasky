@@ -76,7 +76,9 @@ func NewCommand() *cli.Command {
 				} else {
 					task.MarkTaskInProgressByTitle(cfg, title)
 				}
-				utils.PlaySound(cfg.Sounds.Start)
+				if err := utils.PlaySound(cfg.Sounds.Start); err != nil {
+					fmt.Printf("Warning: %v\n", err)
+				}
 
 				// Ask to start a Pomodoro
 				fmt.Print("Start a Pomodoro? (Y/n): ")
