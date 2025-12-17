@@ -1,9 +1,11 @@
 package task
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -12,7 +14,7 @@ import (
 	"tasky/utils"
 )
 
-func CreateTask(cfg config.Config, title, description string, createGitHubIssue bool) (string, error) {
+func CreateTask(cfg config.Config, title, description string, createGitHubIssue bool) (string, string, error) {
 	task := config.Task{
 		Frontmatter: config.Frontmatter{
 			Title:		title,
@@ -22,6 +24,23 @@ func CreateTask(cfg config.Config, title, description string, createGitHubIssue 
 	}
 
 	projectName := utils.GetProjectName()
+
+	// Check if project directory exists in VaultPath
+	projectDir := filepath.Join(cfg.General.VaultPath, projectName)
+	if _, err := os.Stat(projectDir); os.IsNotExist(err) {
+		fmt.Printf("Project directory '%s' does not exist. Create it? (Y/n): ", projectDir)
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		trimmedInput := strings.ToLower(strings.TrimSpace(input))
+		if trimmedInput == "y" || trimmedInput == "" {
+			if err := os.MkdirAll(projectDir, 0755); err != nil {
+				return "", "", fmt.Errorf("could not create project directory: %w", err)
+			}
+			fmt.Printf("Project directory '%s' created.\n", projectDir)
+		} else {
+			return "", "", fmt.Errorf("project directory '%s' does not exist", projectDir)
+		}
+	}
 
 	// Format filename
 	safeTitle := strings.ReplaceAll(strings.ToLower(title), " ", "-")
@@ -36,14 +55,14 @@ func CreateTask(cfg config.Config, title, description string, createGitHubIssue 
 		cmd := exec.Command("gh", "issue", "create", "--title", title, "--body", description)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return "", fmt.Errorf("error creating GitHub issue: %w\n%s", err, string(output))
+			return "", "", fmt.Errorf("error creating GitHub issue: %w\n%s", err, string(output))
 		}
 		fmt.Println("GitHub issue created successfully.")
 		fmt.Println(string(output))
 
 		// Extract issue number from gh output
 		outputStr := string(output)
-		re := regexp.MustCompile(`https://github.com/.*/issues/([0-9]+)`) 
+		re := regexp.MustCompile(`https://github.com/.*/issues/([0-9]+)`)
 		matches := re.FindStringSubmatch(outputStr)
 		if len(matches) > 1 {
 			issueNumber := 0
@@ -75,10 +94,10 @@ func CreateTask(cfg config.Config, title, description string, createGitHubIssue 
 
 	// Write initial file
 	if err := WriteTaskFile(cfg, projectName, filePath, &task, description); err != nil {
-		return "", fmt.Errorf("error creating file: %w", err)
+		return "", "", fmt.Errorf("error creating file: %w", err)
 	}
 
 	fmt.Printf("Task created: %s\n", filePath)
 
-	return createdIssueNumber, nil
+	return createdIssueNumber, filePath, nil
 }
