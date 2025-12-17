@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ func CreateTask(cfg config.Config, title, description string, createGitHubIssue 
 	projectName := utils.GetProjectName()
 
 	// Check if project directory exists in VaultPath
-	projectDir := fmt.Sprintf("%s/%s", cfg.General.VaultPath, projectName)
+	projectDir := filepath.Join(cfg.General.VaultPath, projectName)
 	if _, err := os.Stat(projectDir); os.IsNotExist(err) {
 		fmt.Printf("Project directory '%s' does not exist. Create it? (Y/n): ", projectDir)
 		reader := bufio.NewReader(os.Stdin)
