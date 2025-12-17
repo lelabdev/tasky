@@ -103,15 +103,14 @@ func GetTasks(cfg config.Config, filterProject string) []config.Task {
 	return tasks
 }
 
-func MarkTaskDone(cfg config.Config, taskTitle string) {
+func MarkTaskDone(cfg config.Config, taskTitle string) error {
 	var foundTask *config.Task
 	var foundPath string
 
 	projectName := utils.GetProjectName()
 	taskyBaseDir, err := utils.GetTaskyDir(cfg, projectName)
 	if err != nil {
-		fmt.Println("Error getting Tasky directory:", err)
-		return
+		return fmt.Errorf("error getting Tasky directory: %w", err)
 	}
 
 	err = filepath.Walk(taskyBaseDir, func(path string, info os.FileInfo, err error) error {
@@ -135,18 +134,15 @@ func MarkTaskDone(cfg config.Config, taskTitle string) {
 	})
 
 	if err != nil && err != filepath.SkipDir {
-		fmt.Println("Error searching for task:", err)
-		return
+		return fmt.Errorf("error searching for task: %w", err)
 	}
 
 	if foundTask == nil {
-		fmt.Printf("Task '%s' not found.\n", taskTitle)
-		return
+		return fmt.Errorf("task '%s' not found", taskTitle)
 	}
 
 	if foundTask.Status == config.StatusDone {
-		fmt.Printf("Task '%s' is already marked as done.\n", taskTitle)
-		return
+		return fmt.Errorf("task '%s' is already marked as done", taskTitle)
 	}
 
 	foundTask.Status = config.StatusDone
@@ -154,16 +150,14 @@ func MarkTaskDone(cfg config.Config, taskTitle string) {
 
 	_, descriptionPart, err := ReadTaskFile(cfg, projectName, foundPath)
 	if err != nil {
-		fmt.Println("Error reading task file for update:", err)
-		return
+		return fmt.Errorf("error reading task file for update: %w", err)
 	}
 
 	if err := WriteTaskFile(cfg, projectName, foundPath, foundTask, descriptionPart); err != nil {
-		fmt.Println("Error writing updated task file:", err)
-		return
+		return fmt.Errorf("error writing updated task file: %w", err)
 	}
 
-	fmt.Printf("Task '%s' marked as done.\n", taskTitle)
+	return nil
 }
 
 func MarkTaskInProgress(cfg config.Config, issueNumber int) {

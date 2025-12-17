@@ -7,14 +7,15 @@ import (
 
 // PlaySound plays a WAV file using the 'aplay' command.
 // It checks if the file path is provided before attempting to play.
-func PlaySound(filePath string) {
+func PlaySound(filePath string) error {
 	if filePath == "" {
-		return // No sound file specified
+		return nil // No sound file specified
 	}
 
 	cmd := exec.Command("aplay", filePath)
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("Error playing sound %s: %v\n", filePath, err)
+		return fmt.Errorf("error playing sound %s: %w", filePath, err)
 	}
+	return nil
 }
