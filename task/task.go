@@ -334,7 +334,6 @@ func IncrementPomodoroCountForActiveTask(cfg config.Config) error {
 	foundTask.PomodoroCount++
 	// Update Duration (add PomodoroDuration minutes)
 	minutesToAdd := 25 // default
-		cfg = config.LoadConfig()
 	if cfg.Pomodoro.PomodoroDuration > 0 {
 		minutesToAdd = cfg.Pomodoro.PomodoroDuration
 	}
