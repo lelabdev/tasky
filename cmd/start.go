@@ -32,7 +32,9 @@ func StartCommand() *cli.Command {
 			cfg := config.LoadConfig()
 			task.StartTaskDevelopment(issueNumberStr)
 			task.MarkTaskInProgress(cfg, issueNumber)
-			utils.PlaySound(cfg.Sounds.Start)
+			if err := utils.PlaySound(cfg.Sounds.Start); err != nil {
+				fmt.Printf("Warning: %v\n", err)
+			}
 			fmt.Printf("Task for issue #%s started.\n", issueNumberStr)
 
             // Ask to start a Pomodoro
