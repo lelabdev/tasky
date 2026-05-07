@@ -27,5 +27,6 @@ fn main() -> Result<()> {
         Commands::Week => cmd::week_cmd::run(),
         Commands::Pomodoro(args) => cmd::pomodoro_cmd::run(args),
         Commands::Tui => tui::run(),
+        Commands::Pull => cmd::pull_cmd::run(),
     }
 }
