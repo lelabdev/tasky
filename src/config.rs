@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub vault: VaultConfig,
+    #[serde(default)]
     pub pomodoro: PomodoroConfig,
     #[serde(default)]
     pub sounds: SoundsConfig,
@@ -60,13 +61,41 @@ impl Default for PomodoroConfig {
     }
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        let home = dirs::home_dir()
+            .map(|p| p.join("obsidian").display().to_string())
+            .unwrap_or_else(|| "~/obsidian".to_string());
+        Self {
+            vault: VaultConfig { path: home },
+            pomodoro: PomodoroConfig::default(),
+            sounds: SoundsConfig::default(),
+        }
+    }
+}
+
 impl Config {
-    /// Load config from `~/.config/tasky/config.toml`
+    /// Load config from `~/.config/tasky/config.toml`.
+    /// Returns default config if the file does not exist.
     pub fn load() -> anyhow::Result<Self> {
         let config_path = Self::config_path()?;
+        if !config_path.exists() {
+            return Ok(Self::default());
+        }
         let content = std::fs::read_to_string(&config_path)?;
         let config: Config = toml::from_str(&content)?;
         Ok(config)
+    }
+
+    /// Load config, or prompt the user to run `tasky init` if missing.
+    pub fn ensure_loaded() -> anyhow::Result<Self> {
+        if Self::exists()? {
+            Self::load()
+        } else {
+            anyhow::bail!(
+                "Configuration not found. Run `tasky init` to set up Tasky."
+            );
+        }
     }
 
     /// Save config to `~/.config/tasky/config.toml`
@@ -86,7 +115,8 @@ impl Config {
         Ok(path.exists())
     }
 
-    fn config_path() -> anyhow::Result<std::path::PathBuf> {
+    /// Get the config file path
+    pub fn config_path() -> anyhow::Result<std::path::PathBuf> {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| anyhow::anyhow!("cannot determine config directory"))?;
         Ok(config_dir.join("tasky").join("config.toml"))
