@@ -28,5 +28,6 @@ fn main() -> Result<()> {
         Commands::Pomodoro(args) => cmd::pomodoro_cmd::run(args),
         Commands::Tui => tui::run(),
         Commands::Pull => cmd::pull_cmd::run(),
+        Commands::Report(args) => cmd::report_cmd::run(args),
     }
 }
