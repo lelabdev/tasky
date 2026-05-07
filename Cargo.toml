@@ -1,0 +1,29 @@
+[package]
+name = "tasky"
+version = "0.1.0"
+edition = "2024"
+description = "CLI task manager with Obsidian and GitHub integration"
+license = "MIT"
+
+[dependencies]
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+toml = "0.8"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Terminal
+crossterm = "0.28"
+indicatif = "0.17"
+
+# Config directory
+dirs = "6"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
