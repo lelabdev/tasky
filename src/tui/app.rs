@@ -11,8 +11,18 @@ pub enum State {
     List,
     Detail,
     Confirm,
+    Settings,
+    SettingsEdit(usize),
     Done,
 }
+
+/// Pomodoro settings fields for editing
+pub const SETTINGS_FIELDS: [&str; 4] = [
+    "Work duration",
+    "Short break",
+    "Long break",
+    "Long break interval",
+];
 
 pub struct App {
     state: State,
@@ -22,10 +32,26 @@ pub struct App {
     detail_body: String,
     branch_created: Option<String>,
     error: Option<String>,
+    // Settings
+    settings_values: [u64; 4], // work, short, long, interval
+    settings_idx: usize,
+    settings_input: String,
+    settings_saved: bool,
 }
 
 impl App {
     pub fn new() -> Self {
+        // Load current pomodoro config
+        let (work, short, long, interval) = match crate::config::Config::load() {
+            Ok(cfg) => (
+                cfg.pomodoro.work_duration,
+                cfg.pomodoro.short_break,
+                cfg.pomodoro.long_break,
+                cfg.pomodoro.long_break_interval,
+            ),
+            Err(_) => (25, 5, 15, 4),
+        };
+
         Self {
             state: State::Loading,
             issues: Vec::new(),
@@ -34,6 +60,10 @@ impl App {
             detail_body: String::new(),
             branch_created: None,
             error: None,
+            settings_values: [work, short, long, interval],
+            settings_idx: 0,
+            settings_input: String::new(),
+            settings_saved: false,
         }
     }
 
@@ -47,9 +77,7 @@ impl App {
             Err(e) => {
                 self.error = Some(format!("Failed to fetch issues: {e}"));
                 self.state = State::Done;
-                // Still show one frame so user sees the error
                 terminal.draw(|f| super::ui::draw(f, self))?;
-                // Wait for any key
                 loop {
                     if event::poll(std::time::Duration::from_millis(100))? {
                         if let Event::Key(key) = event::read()? {
@@ -81,6 +109,8 @@ impl App {
                     State::List => self.handle_list(key.code)?,
                     State::Detail => self.handle_detail(key.code)?,
                     State::Confirm => self.handle_confirm(key.code)?,
+                    State::Settings => self.handle_settings(key.code)?,
+                    State::SettingsEdit(_) => self.handle_settings_edit(key.code)?,
                     State::Done => return Ok(()),
                     State::Loading => {}
                 }
@@ -111,6 +141,20 @@ impl App {
                     self.state = State::Detail;
                 }
             }
+            KeyCode::Char('s') => {
+                self.settings_idx = 0;
+                self.settings_saved = false;
+                // Reload from config
+                if let Ok(cfg) = crate::config::Config::load() {
+                    self.settings_values = [
+                        cfg.pomodoro.work_duration,
+                        cfg.pomodoro.short_break,
+                        cfg.pomodoro.long_break,
+                        cfg.pomodoro.long_break_interval,
+                    ];
+                }
+                self.state = State::Settings;
+            }
             _ => {}
         }
         Ok(())
@@ -130,6 +174,11 @@ impl App {
             KeyCode::Enter => {
                 self.state = State::Confirm;
             }
+            KeyCode::Char('s') => {
+                self.settings_idx = 0;
+                self.settings_saved = false;
+                self.state = State::Settings;
+            }
             _ => {}
         }
         Ok(())
@@ -141,7 +190,6 @@ impl App {
                 self.state = State::Detail;
             }
             KeyCode::Char('y') | KeyCode::Enter => {
-                // Create branch for this issue
                 let issue = &self.issues[self.selected];
                 match gh::create_branch(issue.number, &issue.title) {
                     Ok(branch) => {
@@ -158,6 +206,68 @@ impl App {
             }
             _ => {}
         }
+        Ok(())
+    }
+
+    fn handle_settings(&mut self, key: KeyCode) -> Result<()> {
+        match key {
+            KeyCode::Char('q') | KeyCode::Esc => {
+                self.state = State::List;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.settings_idx > 0 {
+                    self.settings_idx -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.settings_idx < SETTINGS_FIELDS.len() - 1 {
+                    self.settings_idx += 1;
+                }
+            }
+            KeyCode::Enter => {
+                // Enter edit mode for selected field
+                self.settings_input = self.settings_values[self.settings_idx].to_string();
+                self.state = State::SettingsEdit(self.settings_idx);
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_settings_edit(&mut self, key: KeyCode) -> Result<()> {
+        match key {
+            KeyCode::Esc => {
+                self.state = State::Settings;
+            }
+            KeyCode::Enter => {
+                // Parse and save
+                if let Ok(val) = self.settings_input.parse::<u64>() {
+                    if val > 0 {
+                        self.settings_values[self.settings_idx] = val;
+                        self.save_settings()?;
+                        self.settings_saved = true;
+                    }
+                }
+                self.state = State::Settings;
+            }
+            KeyCode::Backspace => {
+                self.settings_input.pop();
+            }
+            KeyCode::Char(c) if c.is_ascii_digit() => {
+                self.settings_input.push(c);
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn save_settings(&self) -> Result<()> {
+        let mut config = crate::config::Config::load()?;
+        config.pomodoro.work_duration = self.settings_values[0];
+        config.pomodoro.short_break = self.settings_values[1];
+        config.pomodoro.long_break = self.settings_values[2];
+        config.pomodoro.long_break_interval = self.settings_values[3];
+        config.save()?;
         Ok(())
     }
 
@@ -188,5 +298,21 @@ impl App {
 
     pub fn error(&self) -> Option<&str> {
         self.error.as_deref()
+    }
+
+    pub fn settings_values(&self) -> &[u64; 4] {
+        &self.settings_values
+    }
+
+    pub fn settings_idx(&self) -> usize {
+        self.settings_idx
+    }
+
+    pub fn settings_input(&self) -> &str {
+        &self.settings_input
+    }
+
+    pub fn settings_saved(&self) -> bool {
+        self.settings_saved
     }
 }
