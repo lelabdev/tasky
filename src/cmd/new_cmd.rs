@@ -22,6 +22,17 @@ pub fn run(args: NewArgs) -> Result<()> {
         None => prompt_project(&config)?,
     };
 
+    // 2b. Ensure project directory exists in vault
+    let tasky_dir = get_tasky_dir(&config.vault.path, &project);
+    if !tasky_dir.exists() {
+        if !prompt_yes_no(&format!("Project '{}' doesn't exist yet. Create it?", project))? {
+            anyhow::bail!("aborted");
+        }
+        std::fs::create_dir_all(&tasky_dir)
+            .with_context(|| format!("failed to create project directory: {}", tasky_dir.display()))?;
+        println!("Created project: {}", project);
+    }
+
     // 3. Resolve title
     let mut title = match &args.title {
         Some(t) => t.clone(),

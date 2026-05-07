@@ -3,11 +3,14 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{backend::CrosstermBackend, Terminal};
 
 use super::gh;
+use crate::task::Task;
 
 /// App state
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum State {
     Loading,
+    ProjectPicker,
+    NewProjectInput,
     List,
     Detail,
     Confirm,
@@ -26,7 +29,15 @@ pub const SETTINGS_FIELDS: [&str; 4] = [
 
 pub struct App {
     state: State,
+    // Project picker
+    projects: Vec<String>,
+    project_selected: usize,
+    selected_project: Option<String>,
+    new_project_input: String,
+    // Issues
     issues: Vec<gh::Issue>,
+    // Local tasks
+    local_tasks: Vec<Task>,
     selected: usize,
     scroll: u16,
     detail_body: String,
@@ -37,6 +48,18 @@ pub struct App {
     settings_idx: usize,
     settings_input: String,
     settings_saved: bool,
+}
+
+/// List all vault projects from `~/obsidian/1_Projects/`
+fn list_vault_projects(vault_path: &str) -> Vec<String> {
+    let dir = std::path::Path::new(vault_path).join("1_Projects");
+    std::fs::read_dir(&dir)
+        .unwrap_or_else(|_| panic!("cannot read {}", dir.display()))
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+        .filter(|s| !s.starts_with('_') && !s.starts_with('.'))
+        .collect()
 }
 
 impl App {
@@ -52,9 +75,26 @@ impl App {
             Err(_) => (25, 5, 15, 4),
         };
 
+        // Load vault projects
+        let vault_path = crate::config::Config::load()
+            .map(|c| c.vault.path.clone())
+            .unwrap_or_else(|_| {
+                dirs::home_dir()
+                    .map(|p| p.join("obsidian").display().to_string())
+                    .unwrap_or_else(|| "~/obsidian".to_string())
+            });
+
+        let mut projects = list_vault_projects(&vault_path);
+        projects.sort();
+
         Self {
-            state: State::Loading,
+            state: State::ProjectPicker,
+            projects,
+            project_selected: 0,
+            selected_project: None,
+            new_project_input: String::new(),
             issues: Vec::new(),
+            local_tasks: Vec::new(),
             selected: 0,
             scroll: 0,
             detail_body: String::new(),
@@ -71,27 +111,6 @@ impl App {
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     ) -> Result<()> {
-        // Fetch issues first
-        self.issues = match gh::fetch_issues() {
-            Ok(issues) => issues,
-            Err(e) => {
-                self.error = Some(format!("Failed to fetch issues: {e}"));
-                self.state = State::Done;
-                terminal.draw(|f| super::ui::draw(f, self))?;
-                loop {
-                    if event::poll(std::time::Duration::from_millis(100))? {
-                        if let Event::Key(key) = event::read()? {
-                            if key.kind == KeyEventKind::Press {
-                                break;
-                            }
-                        }
-                    }
-                }
-                return Ok(());
-            }
-        };
-        self.state = State::List;
-
         // Main event loop
         loop {
             terminal.draw(|f| super::ui::draw(f, self))?;
@@ -106,22 +125,128 @@ impl App {
                 }
 
                 match self.state {
+                    State::ProjectPicker => self.handle_project_picker(key.code)?,
+                    State::NewProjectInput => self.handle_new_project_input(key.code)?,
+                    State::Loading => self.handle_loading(key.code)?,
                     State::List => self.handle_list(key.code)?,
                     State::Detail => self.handle_detail(key.code)?,
                     State::Confirm => self.handle_confirm(key.code)?,
                     State::Settings => self.handle_settings(key.code)?,
                     State::SettingsEdit(_) => self.handle_settings_edit(key.code)?,
                     State::Done => return Ok(()),
-                    State::Loading => {}
                 }
             }
         }
     }
 
-    fn handle_list(&mut self, key: KeyCode) -> Result<()> {
+    fn handle_loading(&mut self, key: KeyCode) -> Result<()> {
+        if matches!(key, KeyCode::Char('q') | KeyCode::Esc) {
+            self.state = State::Done;
+        }
+        Ok(())
+    }
+
+    // ── Project Picker ──────────────────────────────────────────────
+
+    fn handle_project_picker(&mut self, key: KeyCode) -> Result<()> {
+        let total_items = self.projects.len() + 1; // +1 for "New project..."
         match key {
             KeyCode::Char('q') | KeyCode::Esc => {
                 self.state = State::Done;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.project_selected > 0 {
+                    self.project_selected -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.project_selected < total_items.saturating_sub(1) {
+                    self.project_selected += 1;
+                }
+            }
+            KeyCode::Char('n') => {
+                self.new_project_input.clear();
+                self.state = State::NewProjectInput;
+            }
+            KeyCode::Enter => {
+                if self.project_selected < self.projects.len() {
+                    // Selected an existing project
+                    let project = self.projects[self.project_selected].clone();
+                    self.load_project(&project)?;
+                } else {
+                    // Selected "New project..."
+                    self.new_project_input.clear();
+                    self.state = State::NewProjectInput;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_new_project_input(&mut self, key: KeyCode) -> Result<()> {
+        match key {
+            KeyCode::Esc => {
+                self.state = State::ProjectPicker;
+            }
+            KeyCode::Enter => {
+                let name = self.new_project_input.trim().to_string();
+                if !name.is_empty() {
+                    // Create the project directory
+                    let vault_path = crate::config::Config::load()
+                        .map(|c| c.vault.path.clone())
+                        .unwrap_or_else(|_| "~/obsidian".to_string());
+                    let dir =
+                        crate::utils::get_tasky_dir(&vault_path, &name);
+                    if !dir.exists() {
+                        std::fs::create_dir_all(&dir)?;
+                    }
+                    // Add to project list and load
+                    self.load_project(&name)?;
+                }
+            }
+            KeyCode::Backspace => {
+                self.new_project_input.pop();
+            }
+            KeyCode::Char(c) => {
+                self.new_project_input.push(c);
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn load_project(&mut self, project: &str) -> Result<()> {
+        self.selected_project = Some(project.to_string());
+
+        // Load local tasks for this project
+        let vault_path = crate::config::Config::load()
+            .map(|c| c.vault.path.clone())
+            .unwrap_or_else(|_| "~/obsidian".to_string());
+        self.local_tasks = crate::storage::list_tasks(&vault_path, Some(project))
+            .unwrap_or_default();
+
+        // Fetch GitHub issues
+        self.state = State::Loading;
+        // We'll set state to Loading so the UI shows it, then transition to List
+        // Issues are fetched inline here
+        self.issues = match gh::fetch_issues() {
+            Ok(issues) => issues,
+            Err(_) => Vec::new(), // Don't fail if gh is not available
+        };
+
+        self.selected = 0;
+        self.state = State::List;
+        Ok(())
+    }
+
+    // ── Issue List ──────────────────────────────────────────────────
+
+    fn handle_list(&mut self, key: KeyCode) -> Result<()> {
+        let total_items = self.local_tasks.len() + self.issues.len();
+        match key {
+            KeyCode::Char('q') | KeyCode::Esc => {
+                self.state = State::ProjectPicker;
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 if self.selected > 0 {
@@ -129,16 +254,25 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                if self.selected < self.issues.len().saturating_sub(1) {
+                if self.selected < total_items.saturating_sub(1) {
                     self.selected += 1;
                 }
             }
             KeyCode::Enter => {
-                if !self.issues.is_empty() {
-                    let issue_num = self.issues[self.selected].number;
-                    self.detail_body = gh::fetch_issue_body(issue_num).unwrap_or_default();
+                if self.selected < self.local_tasks.len() {
+                    // Local task selected — show detail
+                    let task = &self.local_tasks[self.selected];
+                    self.detail_body = task.body.clone();
                     self.scroll = 0;
                     self.state = State::Detail;
+                } else if !self.issues.is_empty() {
+                    let issue_idx = self.selected - self.local_tasks.len();
+                    if issue_idx < self.issues.len() {
+                        let issue_num = self.issues[issue_idx].number;
+                        self.detail_body = gh::fetch_issue_body(issue_num).unwrap_or_default();
+                        self.scroll = 0;
+                        self.state = State::Detail;
+                    }
                 }
             }
             KeyCode::Char('s') => {
@@ -190,13 +324,19 @@ impl App {
                 self.state = State::Detail;
             }
             KeyCode::Char('y') | KeyCode::Enter => {
-                let issue = &self.issues[self.selected];
-                match gh::create_branch(issue.number, &issue.title) {
-                    Ok(branch) => {
-                        self.branch_created = Some(branch);
-                    }
-                    Err(e) => {
-                        self.error = Some(format!("Failed to create branch: {e}"));
+                // Only create branch for GitHub issues
+                if self.selected >= self.local_tasks.len() {
+                    let issue_idx = self.selected - self.local_tasks.len();
+                    if issue_idx < self.issues.len() {
+                        let issue = &self.issues[issue_idx];
+                        match gh::create_branch(issue.number, &issue.title) {
+                            Ok(branch) => {
+                                self.branch_created = Some(branch);
+                            }
+                            Err(e) => {
+                                self.error = Some(format!("Failed to create branch: {e}"));
+                            }
+                        }
                     }
                 }
                 self.state = State::Done;
@@ -272,12 +412,33 @@ impl App {
     }
 
     // Public getters for UI
+
     pub fn state(&self) -> State {
         self.state
     }
 
+    pub fn projects(&self) -> &[String] {
+        &self.projects
+    }
+
+    pub fn project_selected(&self) -> usize {
+        self.project_selected
+    }
+
+    pub fn selected_project(&self) -> Option<&str> {
+        self.selected_project.as_deref()
+    }
+
+    pub fn new_project_input(&self) -> &str {
+        &self.new_project_input
+    }
+
     pub fn issues(&self) -> &[gh::Issue] {
         &self.issues
+    }
+
+    pub fn local_tasks(&self) -> &[Task] {
+        &self.local_tasks
     }
 
     pub fn selected(&self) -> usize {
