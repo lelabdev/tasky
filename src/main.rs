@@ -4,6 +4,7 @@ use clap::Parser;
 mod cmd;
 mod config;
 mod pomodoro;
+mod storage;
 mod task;
 mod utils;
 
