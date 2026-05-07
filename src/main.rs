@@ -6,6 +6,7 @@ mod config;
 mod pomodoro;
 mod storage;
 mod task;
+mod tui;
 mod utils;
 
 use cmd::{Cli, Commands};
@@ -25,5 +26,6 @@ fn main() -> Result<()> {
         Commands::Day => cmd::day_cmd::run(),
         Commands::Week => cmd::week_cmd::run(),
         Commands::Pomodoro(args) => cmd::pomodoro_cmd::run(args),
+        Commands::Tui => tui::run(),
     }
 }
