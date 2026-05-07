@@ -64,6 +64,15 @@ pub fn get_current_branch() -> anyhow::Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+/// Check if current directory is inside a git repository
+pub fn is_git_repository() -> bool {
+    std::process::Command::new("git")
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 /// Extract issue number from branch name
 /// e.g. "feat/42-login-page" → Some(42)
 pub fn extract_issue_from_branch(branch: &str) -> Option<u64> {
