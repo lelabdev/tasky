@@ -6,6 +6,7 @@ pub mod link_cmd;
 pub mod list_cmd;
 pub mod new_cmd;
 pub mod pomodoro_cmd;
+pub mod pull_cmd;
 pub mod start_cmd;
 pub mod stop_cmd;
 pub mod week_cmd;
@@ -58,6 +59,9 @@ pub enum Commands {
 
     /// Interactive TUI — browse and pick GitHub issues
     Tui,
+
+    /// Pull open GitHub issues as tasks (skip existing)
+    Pull,
 }
 
 #[derive(Args)]
