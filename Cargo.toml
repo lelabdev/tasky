@@ -1,9 +1,13 @@
 [package]
 name = "tasky"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "CLI task manager with Obsidian and GitHub integration"
 license = "MIT"
+authors = ["A0-42"]
+repository = "https://github.com/lelabdev/tasky"
+keywords = ["cli", "task", "obsidian", "pomodoro", "github"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 # CLI

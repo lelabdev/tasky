@@ -29,21 +29,26 @@ pub enum Commands {
     Init,
 
     /// Create a new task
+    #[command(visible_alias("n"))]
     New(NewArgs),
 
     /// List tasks
+    #[command(visible_aliases(["l", "ls"]))]
     List(ListArgs),
 
     /// Start a task (set in-progress + begin tracking)
+    #[command(visible_alias("s"))]
     Start(TaskIdentifier),
 
     /// Stop time tracking on active task
     Stop,
 
     /// Mark a task as done
+    #[command(visible_alias("d"))]
     Done(TaskIdentifier),
 
     /// Push branch, create PR, merge, mark task done
+    #[command(visible_alias("f"))]
     Finish,
 
     /// Create _tasky symlink in project directory
@@ -56,12 +61,14 @@ pub enum Commands {
     Week,
 
     /// Pomodoro timer
+    #[command(visible_alias("po"))]
     Pomodoro(PomodoroArgs),
 
     /// Interactive TUI — browse and pick GitHub issues
     Tui,
 
     /// Pull open GitHub issues as tasks (skip existing)
+    #[command(visible_alias("p"))]
     Pull,
 
     /// Show time tracking report
