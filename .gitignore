@@ -8,5 +8,5 @@ tasky
 .cursor/rules/
 .vscode/
 
-# Legacy Go (kept for reference during rewrite)
-# See issue #35 for cleanup plan
+# Archived Go codebase
+/_archive_go/
