@@ -55,6 +55,9 @@ pub enum Commands {
 
     /// Pomodoro timer
     Pomodoro(PomodoroArgs),
+
+    /// Interactive TUI — browse and pick GitHub issues
+    Tui,
 }
 
 #[derive(Args)]

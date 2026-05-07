@@ -11,6 +11,7 @@ clap = { version = "4", features = ["derive"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 serde_yaml = "0.9"
 toml = "0.8"
 
@@ -20,6 +21,7 @@ chrono = { version = "0.4", features = ["serde"] }
 # Terminal
 crossterm = "0.28"
 indicatif = "0.17"
+ratatui = "0.29"
 
 # Config directory
 dirs = "6"
