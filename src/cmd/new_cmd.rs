@@ -6,7 +6,7 @@ use chrono::Local;
 use crate::config::Config;
 use crate::storage::{slugify_title, write_task};
 use crate::task::{Frontmatter, Task, TaskStatus};
-use crate::utils::{detect_project, get_tasky_dir};
+use crate::utils::{detect_project, get_tasky_dir, is_git_repository};
 
 use super::NewArgs;
 
@@ -15,9 +15,11 @@ pub fn run(args: NewArgs) -> Result<()> {
     let config = Config::ensure_loaded()?;
 
     // 2. Detect project name
+    let in_git = is_git_repository();
     let project = match &args.project {
         Some(p) => p.clone(),
-        None => detect_project().context("could not detect project name")?,
+        None if in_git => detect_project().context("could not detect project name")?,
+        None => prompt_project(&config)?,
     };
 
     // 3. Resolve title
@@ -125,6 +127,44 @@ fn resolve_description(args: &NewArgs) -> Result<String> {
     }
 
     Ok(String::new())
+}
+
+/// Prompt the user for a project name.
+/// Lists existing projects from the vault as suggestions.
+fn prompt_project(config: &Config) -> Result<String> {
+    let projects_dir = std::path::Path::new(&config.vault.path).join("1_Projects");
+
+    // List existing project folders
+    if projects_dir.exists() {
+        let mut projects: Vec<String> = std::fs::read_dir(&projects_dir)
+            .unwrap_or_else(|_| panic!("cannot read {}", projects_dir.display()))
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+            .filter(|s| !s.starts_with('_') && !s.starts_with('.'))
+            .collect();
+        projects.sort();
+
+        if !projects.is_empty() {
+            println!("Available projects:");
+            for (i, p) in projects.iter().enumerate() {
+                println!("  {}. {}", i + 1, p);
+            }
+            println!();
+        }
+    }
+
+    print!("Project: ");
+    io::stdout().flush()?;
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let project = input.trim().to_string();
+
+    if project.is_empty() {
+        anyhow::bail!("project name cannot be empty");
+    }
+
+    Ok(project)
 }
 
 /// Prompt the user for a task title via stdin.
