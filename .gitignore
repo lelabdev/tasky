@@ -1,4 +1,12 @@
+# Rust
+/target/
+
+# Binary
 tasky
+
+# IDE
 .cursor/rules/
-tasky
-tasky/
+.vscode/
+
+# Legacy Go (kept for reference during rewrite)
+# See issue #35 for cleanup plan
