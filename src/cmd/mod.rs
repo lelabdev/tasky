@@ -7,6 +7,7 @@ pub mod list_cmd;
 pub mod new_cmd;
 pub mod pomodoro_cmd;
 pub mod pull_cmd;
+pub mod report_cmd;
 pub mod start_cmd;
 pub mod stop_cmd;
 pub mod week_cmd;
@@ -62,6 +63,9 @@ pub enum Commands {
 
     /// Pull open GitHub issues as tasks (skip existing)
     Pull,
+
+    /// Show time tracking report
+    Report(ReportArgs),
 }
 
 #[derive(Args)]
@@ -141,4 +145,15 @@ pub enum PomodoroCommands {
 
     /// Configure pomodoro settings
     Configure,
+}
+
+#[derive(Args)]
+pub struct ReportArgs {
+    /// Filter by project
+    #[arg(long)]
+    pub project: Option<String>,
+
+    /// Show only done tasks
+    #[arg(long)]
+    pub done: bool,
 }
