@@ -3,6 +3,7 @@
 ## Project
 
 - **Name:** tasky
+- **Version:** 0.2.0
 - **Repo:** [lelabdev/tasky](https://github.com/lelabdev/tasky)
 - **Description:** CLI task manager for developers with Obsidian vault and GitHub Issue integration
 - **Language:** Rust (edition 2024)
@@ -13,7 +14,7 @@
 - **Serialization:** serde, serde_yaml, toml
 - **Error handling:** anyhow, thiserror
 - **Date/time:** chrono
-- **Terminal:** crossterm, indicatif
+- **Terminal:** crossterm, indicatif, ratatui
 - **Config:** dirs (platform config directory)
 
 ## Commands
@@ -32,6 +33,28 @@ cargo test
 # Lint
 cargo clippy
 ```
+
+## CLI Commands & Aliases
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `tasky init` | — | Config setup (vault path) |
+| `tasky new` | `n` | Create a task |
+| `tasky list` | `l`, `ls` | List tasks |
+| `tasky start` | `s` | Set in-progress + time tracking |
+| `tasky stop` | — | Pause tracking |
+| `tasky done` | `d` | Mark done |
+| `tasky finish` | `f` | Push + PR + merge + done |
+| `tasky link` | — | Create `_tasky` symlink |
+| `tasky day` | — | Daily summary |
+| `tasky week` | — | Weekly summary (all projects) |
+| `tasky pull` | `p` | Fetch open GitHub issues as tasks |
+| `tasky report` | — | Time tracking report |
+| `tasky tui` | — | Interactive TUI (ratatui) |
+| `tasky pomodoro start` | `po start` | Pomodoro timer |
+| `tasky pomodoro stop` | `po stop` | Stop pomodoro |
+| `tasky pomodoro status` | `po status` | Pomodoro settings |
+| `tasky pomodoro configure` | `po configure` | Edit pomodoro durations |
 
 ## Configuration
 
@@ -56,11 +79,18 @@ src/
     link_cmd.rs       — tasky link
     day_cmd.rs        — tasky day
     week_cmd.rs       — tasky week
+    pull_cmd.rs       — tasky pull
+    report_cmd.rs     — tasky report
     pomodoro_cmd.rs   — tasky pomodoro
+  tui/
+    mod.rs            — TUI entry (terminal setup/teardown)
+    app.rs            — App state machine (project picker, list, detail, settings)
+    ui.rs             — ratatui rendering
+    gh.rs             — GitHub issue fetching via gh CLI
   config.rs          — TOML config load/save
   storage.rs         — Read/write frontmatter, list_tasks, find_task, slugify
   task.rs            — Task, Frontmatter, TaskStatus data models
-  utils.rs           — detect_project, get_current_branch, extract_issue_from_branch
+  utils.rs           — detect_project, get_current_branch, extract_issue_from_branch, is_git_repository
   pomodoro.rs        — Pomodoro timer with indicatif progress bar
 ```
 
@@ -68,8 +98,10 @@ src/
 
 1. **Config** loaded from `~/.config/tasky/config.toml` (vault path, pomodoro settings)
 2. **Project** auto-detected from git context (remote → root dir → cwd)
-3. **Tasks** stored as Markdown + YAML frontmatter in `~/obsidian/1_Projects/<project>/`
-4. **Task lookup** by issue number (exact) or title (case-insensitive substring)
+3. **Outside git** → prompts for project selection from vault projects
+4. **Project auto-creation** → when using `-p <name>` or interactive picker, creates the vault directory if it doesn't exist
+5. **Tasks** stored as Markdown + YAML frontmatter in `~/obsidian/1_Projects/<project>/`
+6. **Task lookup** by issue number (exact) or title (case-insensitive substring)
 
 ### Key Types
 

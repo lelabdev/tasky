@@ -9,8 +9,7 @@ Tasks are stored as Markdown files with YAML frontmatter inside your Obsidian va
 ```bash
 git clone https://github.com/lelabdev/tasky.git
 cd tasky
-cargo build --release
-./target/release/tasky --help
+cargo install --path .
 ```
 
 Or run directly during development:
@@ -46,8 +45,19 @@ tasky done "login page"
 # Full workflow: push + PR + merge + done
 tasky finish
 
-# Daily summary
+# Daily / weekly summary
 tasky day
+tasky week
+
+# Time tracking report
+tasky report
+tasky report --project myapp --done
+
+# Pull open GitHub issues as tasks
+tasky pull
+
+# Interactive TUI — browse issues, pick a project
+tasky tui
 
 # Pomodoro timer
 tasky pomodoro start
@@ -66,6 +76,8 @@ tasky init
 ### `tasky new`
 
 Create a new task. Opens in your default editor if no title is provided.
+
+When run **outside a git repository**, prompts for project selection with a list of existing vault projects. Using `-p <name>` auto-creates the project directory if it doesn't exist.
 
 ```bash
 tasky new "Task title"
@@ -156,11 +168,44 @@ tasky day
 
 ### `tasky week`
 
-Show a weekly summary.
+Show a weekly summary across all projects — tasks completed, total time tracked, and pomodoro counts for the last 7 days.
 
 ```bash
 tasky week
 ```
+
+### `tasky pull`
+
+Fetch open GitHub issues from the current repository and create local tasks for any that don't already exist. Uses `gh` CLI under the hood.
+
+```bash
+tasky pull
+```
+
+### `tasky report`
+
+Show a time tracking report with totals, task breakdown, estimate vs actual comparison, and average duration per completed task.
+
+```bash
+tasky report                # All tasks across all projects
+tasky report --project api  # Filter by project
+tasky report --done         # Only completed tasks
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project <name>` | Filter by project |
+| `--done` | Show only done tasks |
+
+### `tasky tui`
+
+Launch an interactive terminal UI (ratatui) to browse projects, view GitHub issues and local tasks, and create branches. Starts with a **project picker** that lists all vault projects and allows creating new ones.
+
+```bash
+tasky tui
+```
+
+Keybindings: `j/k` or arrows to navigate, `Enter` to select, `s` for settings, `q`/`Esc` to go back.
 
 ### `tasky pomodoro`
 
@@ -173,6 +218,20 @@ tasky pomodoro stop               # Stop the current timer
 tasky pomodoro status             # Show pomodoro settings
 tasky pomodoro configure          # Edit pomodoro settings
 ```
+
+## Aliases
+
+Short aliases are available for common commands:
+
+| Alias | Command |
+|-------|---------|
+| `n` | `new` |
+| `l`, `ls` | `list` |
+| `s` | `start` |
+| `d` | `done` |
+| `f` | `finish` |
+| `po` | `pomodoro` |
+| `p` | `pull` |
 
 ## Configuration
 
@@ -240,7 +299,11 @@ Tasky auto-detects the current project using the following priority:
 2. **Git root directory** — uses the repository's top-level folder name
 3. **Current directory** — falls back to the working directory name
 
-You can override auto-detection with `--project <name>` on any command.
+When run **outside a git repository** (no git context), Tasky prompts for project selection, listing existing vault projects and allowing you to type a new name.
+
+Using `-p <name>` or the interactive project picker **auto-creates** the project directory in the vault if it doesn't exist.
+
+You can also override auto-detection with `--project <name>` on any command.
 
 ### Branch → Issue Extraction
 
@@ -268,11 +331,18 @@ src/
     link_cmd.rs       — tasky link (symlink _tasky directory)
     day_cmd.rs        — tasky day (daily summary)
     week_cmd.rs       — tasky week (weekly summary)
+    pull_cmd.rs       — tasky pull (fetch open GitHub issues as tasks)
+    report_cmd.rs     — tasky report (time tracking report)
     pomodoro_cmd.rs   — tasky pomodoro (timer + auto-track)
+  tui/
+    mod.rs            — TUI entry point (terminal setup/teardown)
+    app.rs            — App state machine (project picker, list, detail, settings)
+    ui.rs             — ratatui rendering
+    gh.rs             — GitHub issue fetching via gh CLI
   config.rs          — TOML config load/save (vault path, pomodoro, sounds)
   storage.rs         — Read/write Markdown + YAML frontmatter, list_tasks, find_task, slugify
   task.rs            — Task, Frontmatter, TaskStatus data models
-  utils.rs           — detect_project, get_current_branch, extract_issue_from_branch
+  utils.rs           — detect_project, get_current_branch, extract_issue_from_branch, is_git_repository
   pomodoro.rs        — Pomodoro timer with indicatif progress bar + break prompt
 ```
 
@@ -284,6 +354,7 @@ src/
 | `serde` + `serde_yaml` + `toml` | Serialization (frontmatter, config) |
 | `chrono` | Date/time handling |
 | `crossterm` | Terminal control |
+| `ratatui` | Terminal UI framework (TUI) |
 | `indicatif` | Progress bars (pomodoro timer) |
 | `dirs` | Platform config directories |
 | `anyhow` + `thiserror` | Error handling |
